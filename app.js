@@ -11,7 +11,7 @@ const CONFIG = {
     PARSE_API_URL: 'https://api.upstage.ai/v1/document-digitization',
     CHAT_API_URL: 'https://api.upstage.ai/v1/solar/chat/completions',
     PARSE_MODEL: 'document-parse',
-    CHAT_MODEL: 'solar-1-mini-chat',
+    CHAT_MODEL: 'solar-pro3',
     SUPPORTED_FORMATS: ['.pdf', '.hwp', '.hwpx'],
     REQUIRED_CRITERIA: ['1-1', '1-2', '1-3', '2', '3', '4', '5-1', '5-2', '5-3'],
     MAX_FILE_SIZE: 4 * 1024 * 1024  // 4MB limit for Vercel
