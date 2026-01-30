@@ -7,7 +7,7 @@
 // Configuration
 // ========================================
 const CONFIG = {
-    API_KEY: import.meta.env.VITE_UPSTAGE_API_KEY || localStorage.getItem('upstage_api_key') || '',
+    PROXY_URL: '/api/upstage',
     PARSE_API_URL: 'https://api.upstage.ai/v1/document-digitization',
     CHAT_API_URL: 'https://api.upstage.ai/v1/solar/chat/completions',
     SUPPORTED_FORMATS: ['.pdf', '.hwp', '.hwpx'],
@@ -164,10 +164,7 @@ async function parseDocuments() {
         return;
     }
 
-    if (!CONFIG.API_KEY) {
-        alert('API 키가 설정되지 않았습니다. 환경 변수를 확인해주세요.');
-        return;
-    }
+
 
     elements.progressSection.classList.remove('hidden');
     elements.parseBtn.disabled = true;
@@ -230,31 +227,41 @@ async function parseDocuments() {
 }
 
 async function parseDocument(file) {
-    const formData = new FormData();
-    formData.append('model', 'document-parse');
-    formData.append('document', file);
-    formData.append('ocr', 'force');
-    formData.append('output_formats', "['text', 'markdown']");
-    formData.append('mode', 'enhanced');
+    // 파일을 Base64로 변환
+    const arrayBuffer = await file.arrayBuffer();
+    const base64 = btoa(
+        new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+    );
 
-    const response = await fetch(CONFIG.PARSE_API_URL, {
+    const response = await fetch(CONFIG.PROXY_URL, {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${CONFIG.API_KEY}`
+            'Content-Type': 'application/json'
         },
-        body: formData
+        body: JSON.stringify({
+            endpoint: CONFIG.PARSE_API_URL,
+            isFormData: true,
+            body: {
+                model: 'document-parse',
+                ocr: 'force',
+                output_formats: "['text', 'markdown']",
+                mode: 'enhanced',
+                document: {
+                    data: base64,
+                    filename: file.name,
+                    contentType: file.type || 'application/octet-stream'
+                }
+            }
+        })
     });
 
     if (!response.ok) {
-        const errorText = await response.text();
+        const errorData = await response.json().catch(() => ({}));
         let errorMessage = `API 오류: ${response.status}`;
-        try {
-            const errorJson = JSON.parse(errorText);
-            if (errorJson.error?.message) {
-                errorMessage = errorJson.error.message;
-            }
-        } catch (e) {
-            errorMessage = errorText || errorMessage;
+        if (errorData.error?.message) {
+            errorMessage = errorData.error.message;
+        } else if (errorData.error) {
+            errorMessage = errorData.error;
         }
         throw new Error(errorMessage);
     }
@@ -334,26 +341,29 @@ ${documentText.substring(0, 10000)}
   "5-3": "충족"
 }`;
 
-    const response = await fetch(CONFIG.CHAT_API_URL, {
+    const response = await fetch(CONFIG.PROXY_URL, {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${CONFIG.API_KEY}`,
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            model: 'solar-pro',
-            messages: [
-                {
-                    role: 'system',
-                    content: '당신은 학습지원 소프트웨어 선정기준 분석 전문가입니다. 문서를 분석하여 정확한 정보를 JSON 형식으로 추출합니다.'
-                },
-                {
-                    role: 'user',
-                    content: prompt
-                }
-            ],
-            temperature: 0.1,
-            max_tokens: 1000
+            endpoint: CONFIG.CHAT_API_URL,
+            isFormData: false,
+            body: {
+                model: 'solar-pro',
+                messages: [
+                    {
+                        role: 'system',
+                        content: '당신은 학습지원 소프트웨어 선정기준 분석 전문가입니다. 문서를 분석하여 정확한 정보를 JSON 형식으로 추출합니다.'
+                    },
+                    {
+                        role: 'user',
+                        content: prompt
+                    }
+                ],
+                temperature: 0.1,
+                max_tokens: 1000
+            }
         })
     });
 

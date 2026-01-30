@@ -34,7 +34,7 @@ cp .env.example .env
 ```
 
 ```env
-VITE_UPSTAGE_API_KEY=your_api_key_here
+UPSTAGE_API_KEY=your_api_key_here
 ```
 
 API 키는 [Upstage 콘솔](https://console.upstage.ai)에서 발급받을 수 있습니다.
