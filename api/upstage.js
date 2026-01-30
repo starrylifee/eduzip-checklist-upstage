@@ -1,4 +1,5 @@
 const FormData = require('form-data');
+const https = require('https');
 
 module.exports = async function handler(req, res) {
     // CORS 설정
@@ -28,21 +29,15 @@ module.exports = async function handler(req, res) {
         console.log('isFormData:', isFormData);
 
         if (isFormData) {
-            // Document Parse API - FormData 처리
+            // Document Parse API - FormData 처리 (https 모듈 사용)
             const formData = new FormData();
 
             // 필수 파라미터
             formData.append('model', body.model || 'document-parse');
 
-            // 선택적 파라미터 (값이 있을 때만 추가)
+            // 선택적 파라미터
             if (body.ocr) {
                 formData.append('ocr', body.ocr);
-            }
-            if (body.output_formats) {
-                formData.append('output_formats', body.output_formats);
-            }
-            if (body.mode) {
-                formData.append('mode', body.mode);
             }
 
             // Base64로 인코딩된 파일 데이터 처리
@@ -54,23 +49,47 @@ module.exports = async function handler(req, res) {
                 });
             }
 
-            const response = await fetch(endpoint, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${API_KEY}`,
-                    ...formData.getHeaders()
-                },
-                body: formData
+            // form-data 패키지의 submit 메서드 대신 직접 요청
+            const url = new URL(endpoint);
+
+            return new Promise((resolve, reject) => {
+                const request = https.request({
+                    method: 'POST',
+                    host: url.host,
+                    path: url.pathname,
+                    headers: {
+                        'Authorization': `Bearer ${API_KEY}`,
+                        ...formData.getHeaders()
+                    }
+                }, (response) => {
+                    let data = '';
+                    response.on('data', chunk => data += chunk);
+                    response.on('end', () => {
+                        try {
+                            const jsonData = JSON.parse(data);
+                            if (response.statusCode >= 400) {
+                                console.error('Upstage API error:', response.statusCode, jsonData);
+                                res.status(response.statusCode).json(jsonData);
+                            } else {
+                                res.status(200).json(jsonData);
+                            }
+                            resolve();
+                        } catch (e) {
+                            console.error('JSON parse error:', e, data);
+                            res.status(500).json({ error: 'Failed to parse response' });
+                            resolve();
+                        }
+                    });
+                });
+
+                request.on('error', (error) => {
+                    console.error('Request error:', error);
+                    res.status(500).json({ error: error.message });
+                    resolve();
+                });
+
+                formData.pipe(request);
             });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                console.error('Upstage API error:', response.status, data);
-                return res.status(response.status).json(data);
-            }
-
-            return res.status(200).json(data);
         } else {
             // Chat API - JSON 처리
             const response = await fetch(endpoint, {
