@@ -1,4 +1,6 @@
-export default async function handler(req, res) {
+const FormData = require('form-data');
+
+module.exports = async function handler(req, res) {
     // CORS 설정
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -30,7 +32,6 @@ export default async function handler(req, res) {
 
         if (isFormData) {
             // Document Parse API - FormData 처리
-            const FormData = (await import('form-data')).default;
             const formData = new FormData();
 
             formData.append('model', body.model || 'document-parse');
@@ -70,4 +71,4 @@ export default async function handler(req, res) {
         console.error('Proxy error:', error);
         return res.status(500).json({ error: error.message });
     }
-}
+};
