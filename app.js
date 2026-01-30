@@ -10,8 +10,11 @@ const CONFIG = {
     PROXY_URL: '/api/upstage',
     PARSE_API_URL: 'https://api.upstage.ai/v1/document-digitization',
     CHAT_API_URL: 'https://api.upstage.ai/v1/solar/chat/completions',
+    PARSE_MODEL: 'document-parse',
+    CHAT_MODEL: 'solar-1-mini-chat',
     SUPPORTED_FORMATS: ['.pdf', '.hwp', '.hwpx'],
-    REQUIRED_CRITERIA: ['1-1', '1-2', '1-3', '2', '3', '4', '5-1', '5-2', '5-3']
+    REQUIRED_CRITERIA: ['1-1', '1-2', '1-3', '2', '3', '4', '5-1', '5-2', '5-3'],
+    MAX_FILE_SIZE: 4 * 1024 * 1024  // 4MB limit for Vercel
 };
 
 // ========================================
@@ -111,11 +114,18 @@ function setupDropZone() {
 function handleFiles(fileList) {
     const validFiles = Array.from(fileList).filter(file => {
         const ext = '.' + file.name.split('.').pop().toLowerCase();
-        return CONFIG.SUPPORTED_FORMATS.includes(ext);
+        if (!CONFIG.SUPPORTED_FORMATS.includes(ext)) {
+            return false;
+        }
+        if (file.size > CONFIG.MAX_FILE_SIZE) {
+            alert(`"${file.name}" 파일이 너무 큽니다. (최대 4MB)`);
+            return false;
+        }
+        return true;
     });
 
     if (validFiles.length === 0) {
-        alert('지원되는 파일 형식(PDF, HWP, HWPX)이 아닙니다.');
+        alert('지원되는 파일 형식(PDF, HWP, HWPX)이 아니거나 파일 크기가 초과되었습니다.');
         return;
     }
 
@@ -242,10 +252,10 @@ async function parseDocument(file) {
             endpoint: CONFIG.PARSE_API_URL,
             isFormData: true,
             body: {
-                model: 'document-parse',
+                model: CONFIG.PARSE_MODEL,
                 ocr: 'force',
-                output_formats: "['text', 'markdown']",
-                mode: 'enhanced',
+                output_formats: "['html', 'text', 'markdown']",
+                mode: 'standard',
                 document: {
                     data: base64,
                     filename: file.name,
@@ -350,7 +360,7 @@ ${documentText.substring(0, 10000)}
             endpoint: CONFIG.CHAT_API_URL,
             isFormData: false,
             body: {
-                model: 'solar-pro',
+                model: CONFIG.CHAT_MODEL,
                 messages: [
                     {
                         role: 'system',
