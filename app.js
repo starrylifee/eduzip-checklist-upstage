@@ -1,6 +1,6 @@
 /**
  * 에듀집 소프트웨어 선정기준 분석기
- * Upstage Document Parse API를 사용한 문서 분석 웹앱
+ * Upstage Document Parse API + Chat API를 사용한 문서 분석 웹앱
  */
 
 // ========================================
@@ -8,12 +8,11 @@
 // ========================================
 const CONFIG = {
     API_KEY: import.meta.env.VITE_UPSTAGE_API_KEY || localStorage.getItem('upstage_api_key') || '',
-    API_URL: 'https://api.upstage.ai/v1/document-digitization',
+    PARSE_API_URL: 'https://api.upstage.ai/v1/document-digitization',
+    CHAT_API_URL: 'https://api.upstage.ai/v1/solar/chat/completions',
     SUPPORTED_FORMATS: ['.pdf', '.hwp'],
     REQUIRED_CRITERIA: ['1-1', '1-2', '1-3', '2', '3', '4', '5-1', '5-2', '5-3']
 };
-
-
 
 // ========================================
 // State Management
@@ -74,7 +73,6 @@ function initSession() {
     elements.sessionId.textContent = state.sessionId;
     resetState();
 
-    // Load saved API key
     const savedKey = localStorage.getItem('upstage_api_key');
     if (savedKey) {
         CONFIG.API_KEY = savedKey;
@@ -96,17 +94,14 @@ function resetState() {
 function setupDropZone() {
     const dropZone = elements.dropZone;
 
-    // Click to upload
     dropZone.addEventListener('click', () => {
         elements.fileInput.click();
     });
 
-    // File input change
     elements.fileInput.addEventListener('change', (e) => {
         handleFiles(e.target.files);
     });
 
-    // Drag events
     dropZone.addEventListener('dragover', (e) => {
         e.preventDefault();
         dropZone.classList.add('drag-over');
@@ -171,26 +166,7 @@ function clearFiles() {
 }
 
 // ========================================
-// Demo Mode
-// ========================================
-function loadDemoData() {
-    CONFIG.DEMO_MODE = true;
-    state.parsedData = [...DEMO_DATA];
-    state.results = [...DEMO_DATA];
-    state.rawResponses = [{
-        filename: 'demo_data.json',
-        response: { demo: true, data: DEMO_DATA }
-    }];
-
-    elements.resultsSection.classList.remove('hidden');
-    renderResults();
-    showRawData();
-
-    alert('📋 데모 데이터가 로드되었습니다.\n\n수동으로 항목을 추가하거나 편집한 후 CSV로 다운로드할 수 있습니다.');
-}
-
-// ========================================
-// Document Parsing
+// Document Parsing & AI Analysis
 // ========================================
 async function parseDocuments() {
     if (state.files.length === 0) {
@@ -198,41 +174,44 @@ async function parseDocuments() {
         return;
     }
 
-    // Check API key
     if (!CONFIG.API_KEY) {
-        const useDemo = confirm('API 키가 설정되지 않았습니다.\n\n[확인] - 수동 입력 모드로 시작 (파일 업로드 건너뛰기)\n[취소] - 설정에서 API 키 입력\n\n수동 입력 모드에서는 데이터를 직접 추가할 수 있습니다.');
-        if (useDemo) {
-            // Enable manual mode - show empty results for manual entry
-            state.results = [];
-            elements.resultsSection.classList.remove('hidden');
-            renderResults();
-            return;
-        } else {
-            openSettings();
-            return;
-        }
+        alert('API 키가 설정되지 않았습니다. 설정에서 API 키를 입력해주세요.');
+        openSettings();
+        return;
     }
 
-    // Show progress
     elements.progressSection.classList.remove('hidden');
     elements.parseBtn.disabled = true;
     elements.progressLog.innerHTML = '';
     state.rawResponses = [];
+    state.results = [];
 
     const totalFiles = state.files.length;
     let processedFiles = 0;
-    let hasApiError = false;
 
     for (const file of state.files) {
         try {
-            logProgress(`📤 "${file.name}" 분석 중...`, 'info');
+            // Step 1: Parse document
+            logProgress(`📤 "${file.name}" 문서 파싱 중...`, 'info');
+            const parseResult = await parseDocument(file);
 
-            const result = await parseDocument(file);
-            state.rawResponses.push({ filename: file.name, response: result });
+            // Step 2: Analyze with AI
+            logProgress(`🤖 "${file.name}" AI 분석 중...`, 'info');
+            const analysisResult = await analyzeDocumentWithAI(parseResult, file.name);
 
-            // Extract data from parsed result
-            const extractedData = extractDataFromResponse(result, file.name);
-            state.parsedData.push(...extractedData);
+            state.rawResponses.push({
+                filename: file.name,
+                parseResponse: parseResult,
+                analysisResponse: analysisResult
+            });
+
+            // Add to results
+            if (analysisResult) {
+                state.results.push({
+                    연번: (state.results.length + 1).toString(),
+                    ...analysisResult
+                });
+            }
 
             processedFiles++;
             updateProgress(processedFiles, totalFiles);
@@ -241,11 +220,8 @@ async function parseDocuments() {
         } catch (error) {
             console.error('Parse error:', error);
 
-            // Check for specific API errors
             if (error.message.includes('401') || error.message.includes('api_key')) {
                 logProgress(`❌ API 키 오류: 크레딧 부족 또는 유효하지 않은 API 키`, 'error');
-                logProgress(`💡 https://console.upstage.ai/billing 에서 결제 정보를 등록하세요.`, 'info');
-                hasApiError = true;
             } else {
                 logProgress(`❌ "${file.name}" 분석 실패: ${error.message}`, 'error');
             }
@@ -255,20 +231,12 @@ async function parseDocuments() {
         }
     }
 
-    // Process results
-    processResults();
     elements.parseBtn.disabled = false;
+    renderResults();
+    showRawData();
 
-    if (hasApiError) {
-        logProgress('⚠️ API 오류가 발생했습니다. 수동으로 데이터를 추가해주세요.', 'error');
-        const useDemoData = confirm('API 오류가 발생했습니다.\n\n데모 데이터를 로드하여 기능을 테스트하시겠습니까?\n(확인: 데모 데이터 로드 / 취소: 수동 입력)');
-        if (useDemoData) {
-            loadDemoData();
-        } else {
-            elements.resultsSection.classList.remove('hidden');
-        }
-    } else {
-        logProgress('🎉 모든 문서 분석 완료!', 'success');
+    if (state.results.length > 0) {
+        logProgress(`🎉 ${state.results.length}개 소프트웨어 분석 완료!`, 'success');
     }
 }
 
@@ -277,11 +245,10 @@ async function parseDocument(file) {
     formData.append('model', 'document-parse');
     formData.append('document', file);
     formData.append('ocr', 'force');
-    formData.append('output_formats', "['html', 'markdown', 'text']");
+    formData.append('output_formats', "['text', 'markdown']");
     formData.append('mode', 'enhanced');
-    formData.append('chart_recognition', 'true');
 
-    const response = await fetch(CONFIG.API_URL, {
+    const response = await fetch(CONFIG.PARSE_API_URL, {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${CONFIG.API_KEY}`
@@ -292,7 +259,6 @@ async function parseDocument(file) {
     if (!response.ok) {
         const errorText = await response.text();
         let errorMessage = `API 오류: ${response.status}`;
-
         try {
             const errorJson = JSON.parse(errorText);
             if (errorJson.error?.message) {
@@ -301,11 +267,124 @@ async function parseDocument(file) {
         } catch (e) {
             errorMessage = errorText || errorMessage;
         }
-
         throw new Error(errorMessage);
     }
 
     return await response.json();
+}
+
+async function analyzeDocumentWithAI(parseResult, filename) {
+    const documentText = parseResult.content?.text || parseResult.content?.markdown || '';
+
+    if (!documentText.trim()) {
+        throw new Error('문서에서 텍스트를 추출하지 못했습니다.');
+    }
+
+    const prompt = `다음은 학습지원 소프트웨어 선정기준 체크리스트 문서입니다. 이 문서를 분석하여 아래 정보를 JSON 형식으로 추출해주세요.
+
+문서 내용:
+${documentText.substring(0, 8000)}
+
+추출해야 할 정보:
+1. 소프트웨어명: 문서에서 언급된 학습지원 소프트웨어 이름
+2. 공급자: 소프트웨어를 제공하는 회사/기관명
+3. 유형: 소프트웨어 유형 (예: 학습관리, 콘텐츠, 코딩교육 등)
+4. 주요용도: 소프트웨어의 주요 사용 목적
+
+필수기준 충족 여부 (각 항목별로 "충족", "미충족", "해당없음" 중 하나로 답변):
+- 1-1: 개인정보가 최소한으로 수집되는가?
+- 1-2: 개인정보 수집·이용 목적이 기재되어 있는가?
+- 1-3: 개인정보 수집항목, 보유기간 등이 기재되어 있는가?
+- 2: 개인정보 안전성 확보에 필요한 조치사항이 기재되어 있는가?
+- 3: 이용자에게 열람·정정·삭제·처리정지를 요구할 수 있는 절차가 안내되어 있는가?
+- 4: 만 14세 미만 아동의 개인정보 보호를 위한 절차가 마련되어 있는가?
+- 5-1: 개인정보 보호책임자 관련 정보가 안내되어 있는가?
+- 5-2: 개인정보 제3자 제공에 관한 정보가 기재되어 있는가?
+- 5-3: 개인정보 위·수탁관계에 관한 정보가 기재되어 있는가?
+
+반드시 아래 JSON 형식으로만 응답해주세요:
+{
+  "소프트웨어명": "...",
+  "공급자": "...",
+  "유형": "...",
+  "주요용도": "...",
+  "1-1": "충족",
+  "1-2": "충족",
+  "1-3": "충족",
+  "2": "충족",
+  "3": "충족",
+  "4": "충족",
+  "5-1": "충족",
+  "5-2": "충족",
+  "5-3": "충족"
+}`;
+
+    const response = await fetch(CONFIG.CHAT_API_URL, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${CONFIG.API_KEY}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            model: 'solar-pro',
+            messages: [
+                {
+                    role: 'system',
+                    content: '당신은 학습지원 소프트웨어 선정기준 분석 전문가입니다. 문서를 분석하여 정확한 정보를 JSON 형식으로 추출합니다.'
+                },
+                {
+                    role: 'user',
+                    content: prompt
+                }
+            ],
+            temperature: 0.1,
+            max_tokens: 1000
+        })
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`AI 분석 오류: ${response.status}`);
+    }
+
+    const result = await response.json();
+    const content = result.choices?.[0]?.message?.content || '';
+
+    // Extract JSON from response
+    try {
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            // Convert 충족/미충족 to O/X
+            const criteria = ['1-1', '1-2', '1-3', '2', '3', '4', '5-1', '5-2', '5-3'];
+            criteria.forEach(key => {
+                if (parsed[key]) {
+                    const val = parsed[key].toLowerCase();
+                    if (val.includes('충족') && !val.includes('미')) {
+                        parsed[key] = 'O';
+                    } else if (val.includes('미충족') || val.includes('부적합')) {
+                        parsed[key] = 'X';
+                    } else if (val.includes('해당없음') || val.includes('해당 없음')) {
+                        parsed[key] = '-';
+                    } else {
+                        parsed[key] = parsed[key];
+                    }
+                }
+            });
+            return parsed;
+        }
+    } catch (e) {
+        console.error('JSON parse error:', e);
+    }
+
+    // Fallback: create entry with filename
+    return {
+        소프트웨어명: filename.replace(/\.[^/.]+$/, ''),
+        공급자: '',
+        유형: '',
+        주요용도: '',
+        '1-1': '', '1-2': '', '1-3': '', '2': '', '3': '', '4': '', '5-1': '', '5-2': '', '5-3': ''
+    };
 }
 
 function updateProgress(current, total) {
@@ -323,153 +402,8 @@ function logProgress(message, type = 'info') {
 }
 
 // ========================================
-// Data Extraction
-// ========================================
-function extractDataFromResponse(response, filename) {
-    const results = [];
-
-    // Get HTML and text content
-    const htmlContent = response.content?.html || '';
-    const textContent = response.content?.text || '';
-    const markdownContent = response.content?.markdown || '';
-
-    // Try to find table data in elements
-    const tableElements = response.elements?.filter(el =>
-        el.category === 'table' ||
-        el.category === 'list'
-    ) || [];
-
-    // Parse table HTML to extract rows
-    for (const element of tableElements) {
-        const tableHtml = element.content?.html || '';
-        const tableRows = parseTableHtml(tableHtml);
-        results.push(...tableRows);
-    }
-
-    // If no table found, try to parse from full HTML content
-    if (results.length === 0) {
-        const allRows = parseTableHtml(htmlContent);
-        results.push(...allRows);
-    }
-
-    // If still no data, create a raw entry
-    if (results.length === 0 && (htmlContent || textContent)) {
-        results.push({
-            filename: filename,
-            rawHtml: htmlContent,
-            rawText: textContent,
-            rawMarkdown: markdownContent,
-            needsManualReview: true
-        });
-    }
-
-    return results;
-}
-
-function parseTableHtml(html) {
-    const results = [];
-
-    // Create a temporary element to parse HTML
-    const temp = document.createElement('div');
-    temp.innerHTML = html;
-
-    // Find all table rows
-    const rows = temp.querySelectorAll('tr');
-
-    for (const row of rows) {
-        const cells = row.querySelectorAll('td, th');
-        if (cells.length >= 5) {
-            const rowData = Array.from(cells).map(cell => cell.textContent.trim());
-
-            // Try to map to our schema
-            const entry = mapRowToSchema(rowData);
-            if (entry) {
-                results.push(entry);
-            }
-        }
-    }
-
-    return results;
-}
-
-function mapRowToSchema(rowData) {
-    // Skip header rows
-    if (rowData[0] === '연번' || rowData[0] === '순번' || rowData[0] === 'No') {
-        return null;
-    }
-
-    // Skip empty rows
-    if (rowData.every(cell => !cell || cell.trim() === '')) {
-        return null;
-    }
-
-    // Try to detect the structure
-    // Expected: 연번, 소프트웨어명, 공급자, 유형, 주요용도, 1-1, 1-2, 1-3, 2, 3, 4, 5-1, 5-2, 5-3
-
-    const entry = {
-        연번: rowData[0] || '',
-        소프트웨어명: rowData[1] || '',
-        공급자: rowData[2] || '',
-        유형: rowData[3] || '',
-        주요용도: rowData[4] || '',
-        '1-1': parseCheckValue(rowData[5]),
-        '1-2': parseCheckValue(rowData[6]),
-        '1-3': parseCheckValue(rowData[7]),
-        '2': parseCheckValue(rowData[8]),
-        '3': parseCheckValue(rowData[9]),
-        '4': parseCheckValue(rowData[10]),
-        '5-1': parseCheckValue(rowData[11]),
-        '5-2': parseCheckValue(rowData[12]),
-        '5-3': parseCheckValue(rowData[13])
-    };
-
-    return entry;
-}
-
-function parseCheckValue(value) {
-    if (!value) return '';
-    value = value.trim().toLowerCase();
-
-    // Check for various representations of checked/unchecked
-    if (value === 'o' || value === '○' || value === '●' || value === 'v' ||
-        value === '✓' || value === '✔' || value === 'yes' || value === 'y' ||
-        value === '적합' || value === '충족' || value === '해당') {
-        return 'O';
-    }
-    if (value === 'x' || value === '×' || value === '✗' || value === 'no' ||
-        value === 'n' || value === '부적합' || value === '미충족' || value === '해당없음') {
-        return 'X';
-    }
-    if (value === '-' || value === 'n/a' || value === 'na') {
-        return '-';
-    }
-
-    return value;
-}
-
-// ========================================
 // Results Processing
 // ========================================
-function processResults() {
-    // Filter out entries that need manual review
-    const validEntries = state.parsedData.filter(entry => !entry.needsManualReview);
-    const reviewEntries = state.parsedData.filter(entry => entry.needsManualReview);
-
-    // Number the entries
-    state.results = validEntries.map((entry, index) => ({
-        ...entry,
-        연번: entry.연번 || (index + 1).toString()
-    }));
-
-    // Show results
-    renderResults();
-    showRawData();
-
-    if (reviewEntries.length > 0) {
-        alert(`${reviewEntries.length}개 파일은 테이블 형식을 자동 인식하지 못했습니다. 원본 데이터를 확인하고 수동으로 추가해주세요.`);
-    }
-}
-
 function renderResults() {
     elements.resultsSection.classList.remove('hidden');
 
@@ -489,35 +423,32 @@ function renderResults() {
     elements.resultsBody.innerHTML = state.results.map((row, index) => `
         <tr data-index="${index}">
             <td>${row.연번}</td>
-            <td>${row.소프트웨어명}</td>
-            <td>${row.공급자}</td>
-            <td>${row.유형}</td>
-            <td>${row.주요용도}</td>
-            <td><input type="checkbox" ${row['1-1'] === 'O' ? 'checked' : ''} data-field="1-1"></td>
-            <td><input type="checkbox" ${row['1-2'] === 'O' ? 'checked' : ''} data-field="1-2"></td>
-            <td><input type="checkbox" ${row['1-3'] === 'O' ? 'checked' : ''} data-field="1-3"></td>
-            <td><input type="checkbox" ${row['2'] === 'O' ? 'checked' : ''} data-field="2"></td>
-            <td><input type="checkbox" ${row['3'] === 'O' ? 'checked' : ''} data-field="3"></td>
-            <td><input type="checkbox" ${row['4'] === 'O' ? 'checked' : ''} data-field="4"></td>
-            <td><input type="checkbox" ${row['5-1'] === 'O' ? 'checked' : ''} data-field="5-1"></td>
-            <td><input type="checkbox" ${row['5-2'] === 'O' ? 'checked' : ''} data-field="5-2"></td>
-            <td><input type="checkbox" ${row['5-3'] === 'O' ? 'checked' : ''} data-field="5-3"></td>
+            <td>${row.소프트웨어명 || ''}</td>
+            <td>${row.공급자 || ''}</td>
+            <td>${row.유형 || ''}</td>
+            <td>${row.주요용도 || ''}</td>
+            <td class="criteria-cell ${getCriteriaClass(row['1-1'])}">${row['1-1'] || ''}</td>
+            <td class="criteria-cell ${getCriteriaClass(row['1-2'])}">${row['1-2'] || ''}</td>
+            <td class="criteria-cell ${getCriteriaClass(row['1-3'])}">${row['1-3'] || ''}</td>
+            <td class="criteria-cell ${getCriteriaClass(row['2'])}">${row['2'] || ''}</td>
+            <td class="criteria-cell ${getCriteriaClass(row['3'])}">${row['3'] || ''}</td>
+            <td class="criteria-cell ${getCriteriaClass(row['4'])}">${row['4'] || ''}</td>
+            <td class="criteria-cell ${getCriteriaClass(row['5-1'])}">${row['5-1'] || ''}</td>
+            <td class="criteria-cell ${getCriteriaClass(row['5-2'])}">${row['5-2'] || ''}</td>
+            <td class="criteria-cell ${getCriteriaClass(row['5-3'])}">${row['5-3'] || ''}</td>
             <td class="action-btns">
                 <button class="btn btn-icon" onclick="editRow(${index})" title="편집">✏️</button>
                 <button class="btn btn-icon" onclick="deleteRow(${index})" title="삭제">🗑️</button>
             </td>
         </tr>
     `).join('');
+}
 
-    // Add checkbox change listeners
-    elements.resultsBody.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
-        checkbox.addEventListener('change', (e) => {
-            const row = e.target.closest('tr');
-            const index = parseInt(row.dataset.index);
-            const field = e.target.dataset.field;
-            state.results[index][field] = e.target.checked ? 'O' : 'X';
-        });
-    });
+function getCriteriaClass(value) {
+    if (value === 'O' || value === '충족') return 'criteria-pass';
+    if (value === 'X' || value === '미충족') return 'criteria-fail';
+    if (value === '-') return 'criteria-na';
+    return '';
 }
 
 function showRawData() {
@@ -531,7 +462,14 @@ function showRawData() {
     elements.rawDataContent.innerHTML = state.rawResponses.map(item => `
         <div style="margin-bottom: 20px;">
             <h4 style="margin-bottom: 10px;">📄 ${item.filename}</h4>
-            <pre>${JSON.stringify(item.response, null, 2)}</pre>
+            <details>
+                <summary>파싱 결과</summary>
+                <pre>${JSON.stringify(item.parseResponse, null, 2)}</pre>
+            </details>
+            <details>
+                <summary>AI 분석 결과</summary>
+                <pre>${JSON.stringify(item.analysisResponse, null, 2)}</pre>
+            </details>
         </div>
     `).join('');
 }
@@ -572,8 +510,8 @@ function editRow(index) {
                 <div class="form-group">
                     <label>${c}</label>
                     <select id="edit-${c}">
-                        <option value="O" ${row[c] === 'O' ? 'selected' : ''}>O (적합)</option>
-                        <option value="X" ${row[c] === 'X' ? 'selected' : ''}>X (부적합)</option>
+                        <option value="O" ${row[c] === 'O' ? 'selected' : ''}>O (충족)</option>
+                        <option value="X" ${row[c] === 'X' ? 'selected' : ''}>X (미충족)</option>
                         <option value="-" ${row[c] === '-' ? 'selected' : ''}>- (해당없음)</option>
                         <option value="" ${!row[c] ? 'selected' : ''}>(미정)</option>
                     </select>
@@ -612,7 +550,6 @@ function saveEdit() {
 function deleteRow(index) {
     if (confirm('이 항목을 삭제하시겠습니까?')) {
         state.results.splice(index, 1);
-        // Renumber
         state.results.forEach((row, i) => {
             row.연번 = (i + 1).toString();
         });
@@ -627,15 +564,7 @@ function addNewRow() {
         공급자: '',
         유형: '',
         주요용도: '',
-        '1-1': '',
-        '1-2': '',
-        '1-3': '',
-        '2': '',
-        '3': '',
-        '4': '',
-        '5-1': '',
-        '5-2': '',
-        '5-3': ''
+        '1-1': '', '1-2': '', '1-3': '', '2': '', '3': '', '4': '', '5-1': '', '5-2': '', '5-3': ''
     };
 
     state.results.push(newRow);
@@ -677,7 +606,6 @@ function downloadCSV() {
         return;
     }
 
-    // Create CSV content with BOM for UTF-8
     const BOM = '\uFEFF';
     const headers = ['연번', '학습지원 소프트웨어명', '공급자', '유형', '주요용도', '1-1', '1-2', '1-3', '2', '3', '4', '5-1', '5-2', '5-3'];
 
@@ -703,7 +631,6 @@ function downloadCSV() {
         ...rows.map(row => row.map(cell => `"${(cell || '').replace(/"/g, '""')}"`).join(','))
     ].join('\r\n');
 
-    // Create download link
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -769,36 +696,30 @@ function updateUI() {
 // Event Listeners
 // ========================================
 function setupEventListeners() {
-    // Session
     elements.newSessionBtn.addEventListener('click', () => {
         if (confirm('새 세션을 시작하시겠습니까? 현재 데이터가 초기화됩니다.')) {
             initSession();
         }
     });
 
-    // Files
     elements.clearFilesBtn.addEventListener('click', clearFiles);
     elements.parseBtn.addEventListener('click', parseDocuments);
 
-    // Results
     elements.downloadCsvBtn.addEventListener('click', downloadCSV);
     elements.copyTableBtn.addEventListener('click', copyTable);
     elements.addRowBtn.addEventListener('click', addNewRow);
 
-    // Edit Modal
     elements.saveEditBtn.addEventListener('click', saveEdit);
     elements.cancelEditBtn.addEventListener('click', closeModal);
     elements.editModal.querySelector('.modal-close').addEventListener('click', closeModal);
     elements.editModal.querySelector('.modal-overlay').addEventListener('click', closeModal);
 
-    // Settings Modal
     elements.settingsBtn.addEventListener('click', openSettings);
     elements.saveSettingsBtn.addEventListener('click', saveSettings);
     elements.cancelSettingsBtn.addEventListener('click', closeSettings);
     elements.settingsModal.querySelector('.modal-close').addEventListener('click', closeSettings);
     elements.settingsModal.querySelector('.modal-overlay').addEventListener('click', closeSettings);
 
-    // Keyboard
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             if (!elements.editModal.classList.contains('hidden')) {
@@ -820,9 +741,7 @@ function init() {
     initSession();
 }
 
-// Start the app
 document.addEventListener('DOMContentLoaded', init);
 
-// Expose functions to global scope for inline handlers
 window.editRow = editRow;
 window.deleteRow = deleteRow;

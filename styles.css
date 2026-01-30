@@ -562,6 +562,28 @@ body {
     gap: var(--spacing-xs);
 }
 
+/* Criteria Cell Styling */
+.criteria-cell {
+    text-align: center !important;
+    font-weight: 600;
+    min-width: 40px;
+}
+
+.criteria-cell.criteria-pass {
+    color: var(--success);
+    background-color: rgba(16, 185, 129, 0.1);
+}
+
+.criteria-cell.criteria-fail {
+    color: var(--danger);
+    background-color: rgba(239, 68, 68, 0.1);
+}
+
+.criteria-cell.criteria-na {
+    color: var(--text-muted);
+    background-color: rgba(148, 163, 184, 0.1);
+}
+
 /* Manual Add Section */
 .manual-add-section {
     padding: var(--spacing-lg);
