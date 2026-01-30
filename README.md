@@ -11,6 +11,34 @@
 - 📥 CSV 다운로드 (UTF-8 한글 지원)
 - 📋 테이블 복사 (엑셀 붙여넣기 가능)
 
+## 설치 및 실행
+
+```bash
+# 의존성 설치
+npm install
+
+# 개발 서버 실행
+npm run dev
+
+# 프로덕션 빌드
+npm run build
+```
+
+## 환경 변수 설정
+
+1. `.env.example` 파일을 복사하여 `.env` 파일 생성
+2. Upstage API 키 입력
+
+```bash
+cp .env.example .env
+```
+
+```env
+VITE_UPSTAGE_API_KEY=your_api_key_here
+```
+
+API 키는 [Upstage 콘솔](https://console.upstage.ai)에서 발급받을 수 있습니다.
+
 ## 데이터 양식
 
 | 필드 | 설명 |
@@ -22,45 +50,15 @@
 | 주요용도 | 사용 용도 |
 | 필수기준 (1-1 ~ 5-3) | 체크리스트 항목 |
 
-## 사용 방법
-
-### 1. API 키 설정
-
-1. [Upstage 콘솔](https://console.upstage.ai)에서 API 키를 발급받습니다.
-2. 웹앱에서 ⚙️ 설정 버튼을 클릭합니다.
-3. API 키를 입력하고 저장합니다.
-
-### 2. 문서 분석
-
-1. PDF 또는 HWP 파일을 드래그 앤 드롭하거나 클릭하여 업로드합니다.
-2. "문서 분석 시작" 버튼을 클릭합니다.
-3. 분석 결과를 확인하고 필요시 편집합니다.
-
-### 3. 데이터 내보내기
-
-- **CSV 다운로드**: UTF-8 인코딩 CSV 파일로 저장
-- **테이블 복사**: 클립보드에 복사 후 엑셀에 붙여넣기
-
-## 로컬 실행
-
-```bash
-# Python 사용
-python -m http.server 8080
-
-# 또는 Node.js 사용
-npx serve
-```
-
-브라우저에서 `http://localhost:8080` 접속
-
 ## 기술 스택
 
-- HTML5
-- CSS3 (Vanilla CSS)
-- JavaScript (Vanilla JS)
+- HTML5 / CSS3 / JavaScript (ES Modules)
+- Vite (빌드 도구)
 - Upstage Document Parse API
 
 ## 라이선스
 
 MIT License
+
+© 2026 서울신답초등학교 정용석
 "# eduzip-checklist-upstage" 
