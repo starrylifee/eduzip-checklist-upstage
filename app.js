@@ -280,7 +280,28 @@ async function parseDocument(file) {
 }
 
 async function analyzeDocumentWithAI(parseResult, filename) {
-    const documentText = parseResult.content?.text || parseResult.content?.markdown || '';
+    // HTML에서 텍스트 추출하는 헬퍼 함수
+    function stripHtml(html) {
+        return html
+            .replace(/<br\s*\/?>/gi, '\n')
+            .replace(/<\/p>/gi, '\n')
+            .replace(/<\/div>/gi, '\n')
+            .replace(/<\/h[1-6]>/gi, '\n')
+            .replace(/<[^>]*>/g, '')
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/\n\s*\n/g, '\n')
+            .trim();
+    }
+
+    // 텍스트 추출 (text > markdown > html 순서로 시도)
+    let documentText = parseResult.content?.text || parseResult.content?.markdown || '';
+
+    if (!documentText.trim() && parseResult.content?.html) {
+        documentText = stripHtml(parseResult.content.html);
+    }
 
     if (!documentText.trim()) {
         throw new Error('문서에서 텍스트를 추출하지 못했습니다.');
