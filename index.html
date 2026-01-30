@@ -34,9 +34,6 @@
                         <span class="logo-icon">📊</span>
                         <h1>에듀집 선정기준 분석기</h1>
                     </div>
-                    <button id="settingsBtn" class="btn btn-icon header-btn" title="설정">
-                        ⚙️
-                    </button>
                 </div>
                 <p class="subtitle">학습지원 소프트웨어 선정기준 체크리스트 정리 도구</p>
             </div>
@@ -221,33 +218,7 @@
         </div>
     </div>
 
-    <!-- Settings Modal -->
-    <div id="settingsModal" class="modal hidden">
-        <div class="modal-overlay"></div>
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>⚙️ 설정</h3>
-                <button class="modal-close">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label>Upstage API 키</label>
-                    <input type="password" id="apiKeyInput" placeholder="up_xxxxxxxxxxxxxxxx">
-                    <p class="form-help">
-                        API 키는 <a href="https://console.upstage.ai" target="_blank">Upstage 콘솔</a>에서 발급받을 수 있습니다.
-                    </p>
-                </div>
-                <div class="form-group">
-                    <label>저장된 API 키 상태</label>
-                    <p class="api-status" id="apiStatus">로딩 중...</p>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button id="saveSettingsBtn" class="btn btn-primary">저장</button>
-                <button id="cancelSettingsBtn" class="btn btn-ghost">취소</button>
-            </div>
-        </div>
-    </div>
+
 
     <script type="module" src="/app.js"></script>
 </body>

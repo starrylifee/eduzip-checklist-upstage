@@ -52,11 +52,7 @@ const elements = {
     editModalBody: document.getElementById('editModalBody'),
     saveEditBtn: document.getElementById('saveEditBtn'),
     cancelEditBtn: document.getElementById('cancelEditBtn'),
-    settingsBtn: document.getElementById('settingsBtn'),
-    settingsModal: document.getElementById('settingsModal'),
-    apiKeyInput: document.getElementById('apiKeyInput'),
-    saveSettingsBtn: document.getElementById('saveSettingsBtn'),
-    cancelSettingsBtn: document.getElementById('cancelSettingsBtn')
+
 };
 
 // ========================================
@@ -72,12 +68,6 @@ function initSession() {
     state.sessionId = generateSessionId();
     elements.sessionId.textContent = state.sessionId;
     resetState();
-
-    const savedKey = localStorage.getItem('upstage_api_key');
-    if (savedKey) {
-        CONFIG.API_KEY = savedKey;
-        elements.apiKeyInput.value = savedKey;
-    }
 }
 
 function resetState() {
@@ -175,8 +165,7 @@ async function parseDocuments() {
     }
 
     if (!CONFIG.API_KEY) {
-        alert('API 키가 설정되지 않았습니다. 설정에서 API 키를 입력해주세요.');
-        openSettings();
+        alert('API 키가 설정되지 않았습니다. 환경 변수를 확인해주세요.');
         return;
     }
 
@@ -603,25 +592,7 @@ function closeModal() {
     editingIndex = null;
 }
 
-// ========================================
-// Settings
-// ========================================
-function openSettings() {
-    elements.settingsModal.classList.remove('hidden');
-    elements.apiKeyInput.value = CONFIG.API_KEY || '';
-}
 
-function closeSettings() {
-    elements.settingsModal.classList.add('hidden');
-}
-
-function saveSettings() {
-    const apiKey = elements.apiKeyInput.value.trim();
-    CONFIG.API_KEY = apiKey;
-    localStorage.setItem('upstage_api_key', apiKey);
-    closeSettings();
-    alert('설정이 저장되었습니다.');
-}
 
 // ========================================
 // CSV Export
@@ -740,19 +711,12 @@ function setupEventListeners() {
     elements.editModal.querySelector('.modal-close').addEventListener('click', closeModal);
     elements.editModal.querySelector('.modal-overlay').addEventListener('click', closeModal);
 
-    elements.settingsBtn.addEventListener('click', openSettings);
-    elements.saveSettingsBtn.addEventListener('click', saveSettings);
-    elements.cancelSettingsBtn.addEventListener('click', closeSettings);
-    elements.settingsModal.querySelector('.modal-close').addEventListener('click', closeSettings);
-    elements.settingsModal.querySelector('.modal-overlay').addEventListener('click', closeSettings);
+
 
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             if (!elements.editModal.classList.contains('hidden')) {
                 closeModal();
-            }
-            if (!elements.settingsModal.classList.contains('hidden')) {
-                closeSettings();
             }
         }
     });
