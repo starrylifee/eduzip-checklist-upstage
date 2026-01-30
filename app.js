@@ -9,7 +9,7 @@
 const CONFIG = {
     PROXY_URL: '/api/upstage',
     PARSE_API_URL: 'https://api.upstage.ai/v1/document-digitization',
-    CHAT_API_URL: 'https://api.upstage.ai/v1/solar/chat/completions',
+    CHAT_API_URL: 'https://api.upstage.ai/v1/chat/completions',
     PARSE_MODEL: 'document-parse',
     CHAT_MODEL: 'solar-pro3',
     SUPPORTED_FORMATS: ['.pdf', '.hwp', '.hwpx'],
