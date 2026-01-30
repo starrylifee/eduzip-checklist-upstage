@@ -1,0 +1,16 @@
+{
+  "name": "eduzip-checklist",
+  "version": "1.0.0",
+  "description": "에듀집 학습지원 소프트웨어 선정기준 체크리스트 분석기",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "author": "서울신답초등학교 정용석",
+  "license": "MIT",
+  "devDependencies": {
+    "vite": "^6.4.1"
+  }
+}
