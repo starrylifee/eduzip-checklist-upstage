@@ -300,6 +300,77 @@ body {
 }
 
 /* ========================================
+   Guide Section
+======================================== */
+.guide-section {
+    margin-bottom: var(--spacing-xl);
+}
+
+.guide-card {
+    background: var(--bg-card);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-xl);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-color);
+}
+
+.guide-card h2 {
+    font-size: 1.25rem;
+    margin-bottom: var(--spacing-lg);
+    color: var(--text-primary);
+}
+
+.guide-steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--spacing-lg);
+}
+
+.guide-step {
+    display: flex;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: var(--bg-hover);
+    border-radius: var(--border-radius-sm);
+    transition: all var(--transition-fast);
+}
+
+.guide-step:hover {
+    background: rgba(79, 70, 229, 0.08);
+    transform: translateY(-2px);
+}
+
+.step-number {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: white;
+    font-weight: 700;
+    border-radius: 50%;
+    font-size: 0.875rem;
+}
+
+.step-content h4 {
+    font-size: 1rem;
+    margin-bottom: var(--spacing-xs);
+    color: var(--text-primary);
+}
+
+.step-content p {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.step-content strong {
+    color: var(--primary);
+}
+
+/* ========================================
    Upload Section
 ======================================== */
 .upload-section {

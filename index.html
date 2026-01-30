@@ -5,7 +5,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>에듀집 소프트웨어 선정기준 분석기</title>
-    <meta name="description" content="에듀집 학습지원 소프트웨어 선정기준 체크리스트를 분석하고 정리하는 도구">
+    <meta name="description" content="에듀집 학습지원 소프트웨어 선정기준 체크리스트를 AI로 분석하고 정리하는 도구">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="에듀집 선정기준 분석기">
+    <meta property="og:description" content="학습지원 소프트웨어 선정기준 체크리스트를 AI로 자동 분석하여 CSV로 내보내기">
+    <meta property="og:image" content="og-image.png">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:title" content="에듀집 선정기준 분석기">
+    <meta property="twitter:description" content="학습지원 소프트웨어 선정기준 체크리스트를 AI로 자동 분석하여 CSV로 내보내기">
+    <meta property="twitter:image" content="og-image.png">
+
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
@@ -45,14 +58,54 @@
                 </div>
             </section>
 
+            <!-- How to Use Guide -->
+            <section class="guide-section">
+                <div class="guide-card">
+                    <h2>📖 사용 방법</h2>
+                    <div class="guide-steps">
+                        <div class="guide-step">
+                            <div class="step-number">1</div>
+                            <div class="step-content">
+                                <h4>체크리스트 파일 준비</h4>
+                                <p>에듀집(eduzip.co.kr)에서 기업이 제출한 <strong>소프트웨어 선정기준 체크리스트</strong> 파일(PDF 또는 HWP)을
+                                    다운로드합니다.</p>
+                            </div>
+                        </div>
+                        <div class="guide-step">
+                            <div class="step-number">2</div>
+                            <div class="step-content">
+                                <h4>파일 업로드</h4>
+                                <p>아래 영역에 파일을 <strong>드래그 앤 드롭</strong>하거나 클릭하여 여러 파일을 한 번에 선택합니다.</p>
+                            </div>
+                        </div>
+                        <div class="guide-step">
+                            <div class="step-number">3</div>
+                            <div class="step-content">
+                                <h4>AI 분석</h4>
+                                <p><strong>"문서 분석 시작"</strong> 버튼을 클릭하면 AI가 각 문서에서 소프트웨어명, 공급자, 필수기준 충족 여부를 자동으로 추출합니다.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="guide-step">
+                            <div class="step-number">4</div>
+                            <div class="step-content">
+                                <h4>결과 확인 및 내보내기</h4>
+                                <p>분석 결과를 확인하고, 필요시 편집한 뒤 <strong>CSV 다운로드</strong> 또는 <strong>테이블 복사</strong>로 엑셀에 붙여넣기
+                                    합니다.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Upload Section -->
             <section class="upload-section">
                 <div id="dropZone" class="drop-zone">
                     <div class="drop-zone-content">
                         <div class="upload-icon">📁</div>
-                        <h3>문서 파일을 여기에 드래그하세요</h3>
+                        <h3>체크리스트 파일을 여기에 드래그하세요</h3>
                         <p>또는 클릭하여 파일을 선택하세요</p>
-                        <p class="file-types">지원 형식: PDF, HWP</p>
+                        <p class="file-types">지원 형식: PDF, HWP (여러 파일 선택 가능)</p>
                         <input type="file" id="fileInput" multiple accept=".pdf,.hwp" hidden>
                     </div>
                 </div>
